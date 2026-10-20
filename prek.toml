@@ -1,5 +1,9 @@
 #:tombi toml-version = "v1.1.0"
 
+default_install_hook_types = ["pre-commit", "pre-push"]
+
+default_stages = ["pre-commit"]
+
 # File-modifying hooks use default sequential order; read-only checks run together.
 [priorities]
 read-only = 100
@@ -7,12 +11,18 @@ read-only = 100
 [[repos]]
 repo = "builtin"
 hooks = [
-  { id = "trailing-whitespace" },
-  { id = "check-added-large-files", priority = "read-only" },
-  { id = "end-of-file-fixer" },
-  { id = "check-toml", priority = "read-only" },
-  { id = "check-yaml", priority = "read-only" },
-  { id = "check-commit-trailers", priority = "read-only", args = ["--require=Signed-off-by"] },
+  { id = "trailing-whitespace", stages = ["pre-commit"] },
+  { id = "check-added-large-files", stages = ["pre-commit"], priority = "read-only" },
+  { id = "end-of-file-fixer", stages = ["pre-commit"] },
+  { id = "check-toml", stages = ["pre-commit"], priority = "read-only" },
+  { id = "check-yaml", stages = ["pre-commit"], priority = "read-only" },
+  {
+    id = "check-commit-trailers",
+    priority = "read-only",
+    stages = ["pre-push"],
+    description = "Add missing sign-offs before pushing: git rebase --signoff main",
+    args = ["--require=Signed-off-by"]
+  },
 ]
 
 [[repos]]
@@ -50,7 +60,7 @@ hooks = [
         | cuda-oxide/scripts/check-dependency-licenses\.sh
       )$
     ''',
-    exclude = '^cutile-rs/',
+    exclude = "^cutile-rs/",
     pass_filenames = false
   },
   # Component formatting and lint hooks live in cuda-oxide/ and cutile-rs/prek.toml.

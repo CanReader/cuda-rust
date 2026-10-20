@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Match the stable Tile formatting and Clippy checks in .github/workflows/cutile-rs.yml.
+default_stages = ["pre-commit"]
+
 # File-modifying hooks use default sequential order; read-only checks run together.
 [priorities]
 read-only = 100
