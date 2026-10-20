@@ -1,14 +1,18 @@
 #:tombi toml-version = "v1.1.0"
 
+# File-modifying hooks use default sequential order; read-only checks run together.
+[priorities]
+read-only = 100
+
 [[repos]]
 repo = "builtin"
 hooks = [
   { id = "trailing-whitespace" },
-  { id = "check-added-large-files" },
+  { id = "check-added-large-files", priority = "read-only" },
   { id = "end-of-file-fixer" },
-  { id = "check-toml" },
-  { id = "check-yaml" },
-  { id = "check-commit-trailers", args = ["--require=Signed-off-by"] },
+  { id = "check-toml", priority = "read-only" },
+  { id = "check-yaml", priority = "read-only" },
+  { id = "check-commit-trailers", priority = "read-only", args = ["--require=Signed-off-by"] },
 ]
 
 [[repos]]
@@ -16,6 +20,7 @@ repo = "local"
 hooks = [
   {
     id = "check-branch-name",
+    priority = "read-only",
     name = "check branch name",
     language = "system",
     entry = "bash cuda-oxide/scripts/check-branch-name.sh",
@@ -24,6 +29,7 @@ hooks = [
   },
   {
     id = "check-license-headers",
+    priority = "read-only",
     name = "check license headers",
     language = "system",
     entry = "./cuda-oxide/scripts/check-spdx-headers.sh"
@@ -32,6 +38,7 @@ hooks = [
   # Tile maintains its own dependency policy and is outside this CSV's scope.
   {
     id = "check-dependency-licenses",
+    priority = "read-only",
     name = "check dependency license inventory",
     language = "system",
     shell = "sh",
@@ -69,6 +76,7 @@ hooks = [
   },
   {
     id = "cargo-clippy-host",
+    priority = "read-only",
     name = "lint shared host workspace",
     language = "system",
     shell = "sh",

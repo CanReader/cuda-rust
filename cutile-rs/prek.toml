@@ -3,6 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Match the stable Tile formatting and Clippy checks in .github/workflows/cutile-rs.yml.
+# File-modifying hooks use default sequential order; read-only checks run together.
+[priorities]
+read-only = 100
+
 [[repos]]
 repo = "local"
 hooks = [
@@ -24,6 +28,7 @@ hooks = [
   },
   {
     id = "cargo-clippy-tile",
+    priority = "read-only",
     name = "lint Tile workspace",
     language = "system",
     shell = "sh",

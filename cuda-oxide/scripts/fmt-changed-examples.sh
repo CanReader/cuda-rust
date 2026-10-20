@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Prek passes repository-relative paths. Format each affected example package
+# Prek passes paths relative to its project working directory.
+# Format each affected example package
 # once, including packages inside nested workspaces, as fmt.yml does.
 set -euo pipefail
 
@@ -10,7 +11,7 @@ examples="$root/cuda-oxide/crates/rustc-codegen-cuda/examples"
 directories=()
 
 for file in "$@"; do
-    dir=$(dirname "$root/$file")
+    dir=$(dirname "$PWD/$file")
     while [[ "$dir" == "$examples/"* && ! -f "$dir/Cargo.toml" ]]; do
         dir=$(dirname "$dir")
     done

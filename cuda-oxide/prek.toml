@@ -5,6 +5,10 @@
 # Match the SIMT scopes in .github/workflows/fmt.yml and clippy.yml.
 # The standalone example Clippy sweep stays in CI.
 # Prek runs these hooks from this directory with project-relative paths.
+# File-modifying hooks use default sequential order; read-only checks run together.
+[priorities]
+read-only = 100
+
 [[repos]]
 repo = "local"
 hooks = [
@@ -27,6 +31,7 @@ hooks = [
   },
   {
     id = "cargo-clippy-simt",
+    priority = "read-only",
     name = "lint SIMT workspace",
     language = "system",
     shell = "sh",
@@ -61,6 +66,7 @@ hooks = [
   },
   {
     id = "cargo-clippy-backend",
+    priority = "read-only",
     name = "lint SIMT codegen backend",
     language = "system",
     shell = "sh",
@@ -94,6 +100,7 @@ hooks = [
   },
   {
     id = "cargo-clippy-device-only",
+    priority = "read-only",
     name = "lint cuda-macros device-only fixture",
     language = "system",
     shell = "sh",
