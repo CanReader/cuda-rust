@@ -1,0 +1,135 @@
+#:tombi toml-version = "v1.1.0"
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "check-added-large-files" },
+  { id = "end-of-file-fixer" },
+  { id = "check-toml" },
+  { id = "check-yaml" },
+  { id = "check-commit-trailers", args = ["--require=Signed-off-by"] },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "check-branch-name",
+    name = "check branch name",
+    language = "system",
+    entry = "bash cuda-oxide/scripts/check-branch-name.sh",
+    pass_filenames = false,
+    always_run = true
+  },
+  {
+    id = "check-license-headers",
+    name = "check license headers",
+    language = "system",
+    entry = "./cuda-oxide/scripts/check-spdx-headers.sh"
+  },
+  # Match the independent formatting scopes in .github/workflows/fmt.yml.
+  # Each hook formats its whole scope, only when that scope has changed.
+  {
+    id = "cargo-fmt-host",
+    name = "format shared host workspace",
+    language = "system",
+    shell = "sh",
+    entry = "unset RUSTUP_TOOLCHAIN && cargo fmt --all",
+    files = '''(?x)
+      ^(
+        cuda-(async|bindings|core|core-derive)/.*(
+          \.rs
+          | Cargo\.toml
+          | rustfmt\.toml
+        )
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | \.?rustfmt\.toml
+      )$
+    ''',
+    pass_filenames = false
+  },
+  {
+    id = "cargo-fmt-simt",
+    name = "format SIMT workspace",
+    language = "system",
+    shell = "sh",
+    entry = "cd cuda-oxide && unset RUSTUP_TOOLCHAIN && cargo fmt --all",
+    files = '''(?x)
+      ^cuda-oxide/.*(
+        \.rs
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | rustfmt\.toml
+      )$
+    ''',
+    exclude = '^cuda-oxide/crates/(rustc-codegen-cuda/|cuda-macros/tests/device-only/)',
+    pass_filenames = false
+  },
+  {
+    id = "cargo-fmt-backend",
+    name = "format SIMT codegen backend",
+    language = "system",
+    shell = "sh",
+    entry = "cd cuda-oxide/crates/rustc-codegen-cuda && unset RUSTUP_TOOLCHAIN && cargo fmt --all",
+    files = '''(?x)
+      ^cuda-oxide/crates/rustc-codegen-cuda/.*(
+        \.rs
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | rustfmt\.toml
+      )$
+    ''',
+    exclude = '^cuda-oxide/crates/rustc-codegen-cuda/examples/',
+    pass_filenames = false
+  },
+  {
+    id = "cargo-fmt-device-only",
+    name = "format cuda-macros device-only fixture",
+    language = "system",
+    shell = "sh",
+    entry = "cd cuda-oxide/crates/cuda-macros/tests/device-only && unset RUSTUP_TOOLCHAIN && cargo fmt --all",
+    files = '''(?x)
+      ^cuda-oxide/crates/cuda-macros/tests/device-only/.*(
+        \.rs
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | rustfmt\.toml
+      )$
+    ''',
+    pass_filenames = false
+  },
+  {
+    id = "cargo-fmt-examples",
+    name = "format changed SIMT example crates",
+    language = "system",
+    entry = "bash cuda-oxide/scripts/fmt-changed-examples.sh",
+    files = '''(?x)
+      ^cuda-oxide/crates/rustc-codegen-cuda/examples/.*(
+        \.rs
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | rustfmt\.toml
+      )$
+    ''',
+    require_serial = true
+  },
+  # Tile uses its own stable workspace and formatting job in cutile-rs.yml.
+  {
+    id = "cargo-fmt-tile",
+    name = "format Tile workspace",
+    language = "system",
+    shell = "sh",
+    entry = "cd cutile-rs && unset RUSTUP_TOOLCHAIN && cargo fmt",
+    files = '''(?x)
+      ^cutile-rs/.*(
+        \.rs
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | rustfmt\.toml
+      )$
+    ''',
+    pass_filenames = false
+  },
+]
