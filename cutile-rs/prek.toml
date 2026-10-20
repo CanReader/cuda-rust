@@ -1,0 +1,41 @@
+#:tombi toml-version = "v1.1.0"
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Match the stable Tile formatting and Clippy checks in .github/workflows/cutile-rs.yml.
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "cargo-fmt-tile",
+    name = "format Tile workspace",
+    language = "system",
+    shell = "sh",
+    entry = "unset RUSTUP_TOOLCHAIN && cargo fmt",
+    files = '''(?x)
+      ^.*(
+        \.rs
+        | Cargo\.toml
+        | rust-toolchain\.toml
+        | rustfmt\.toml
+      )$
+    ''',
+    pass_filenames = false
+  },
+  {
+    id = "cargo-clippy-tile",
+    name = "lint Tile workspace",
+    language = "system",
+    shell = "sh",
+    entry = "unset RUSTUP_TOOLCHAIN && cargo clippy --locked --workspace --exclude cuda-tile-rs --all-targets",
+    files = '''(?x)
+      ^.*(
+        \.rs
+        | Cargo\.(toml|lock)
+        | rust-toolchain\.toml
+        | clippy\.toml
+      )$
+    ''',
+    pass_filenames = false
+  },
+]
