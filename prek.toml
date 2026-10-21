@@ -1,7 +1,10 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #:tombi toml-version = "v1.1.0"
 
 default_install_hook_types = ["pre-commit", "pre-push"]
 
+# We want to run hooks on pre-commit unless otherwise specified (i.e. the sign-off check)
 default_stages = ["pre-commit"]
 
 # File-modifying hooks use default sequential order; read-only checks run together.
@@ -11,27 +14,26 @@ read-only = 100
 [[repos]]
 repo = "builtin"
 hooks = [
-  # Preserve captured artifacts as specified in the paper's .gitattributes.
   {
     id = "trailing-whitespace",
     stages = ["pre-commit"],
     exclude = '''(?x)
       ^(
-      cuda-oxide/cuda-oxide-book/_(static|templates)/.*|
-      cutile-rs/cutile-book/_(static|templates)/.*|
-      cutile-rs/cutile-benchmarks/paper/.*\.(csv|jsonl|log|txt)$
+        cuda-oxide/cuda-oxide-book/_(static|templates)/.*|
+        cutile-rs/cutile-book/_(static|templates)/.*|
+        cutile-rs/cutile-benchmarks/paper/.*\.(csv|jsonl|log|txt)|
+        cuda-oxide/intrinsics/probes/[^/]*\.ll
       )$
     '''
   },
   { id = "check-added-large-files", stages = ["pre-commit"], priority = "read-only" },
-  # Also preserve generated probe EOFs allowed by cuda-oxide/.gitattributes.
   {
     id = "end-of-file-fixer",
     stages = ["pre-commit"],
     exclude = '''(?x)
       ^(
-        cuda-oxide/cuda-oxide-book/_static/.*|
-        cutile-rs/cutile-book/_static/.*|
+        cuda-oxide/cuda-oxide-book/_(static|templates)/.*|
+        cutile-rs/cutile-book/_(static|templates)/.*|
         cutile-rs/cutile-benchmarks/paper/.*\.(csv|jsonl|log|txt)|
         cuda-oxide/intrinsics/probes/[^/]*\.ll
       )$
@@ -68,8 +70,6 @@ hooks = [
     entry = "./cuda-oxide/scripts/check-spdx-headers.sh",
     pass_filenames = false
   },
-  # The inventory spans the shared host and SIMT workspaces and examples.
-  # Tile maintains its own dependency policy and is outside this CSV's scope.
   {
     id = "check-dependency-licenses",
     priority = "read-only",

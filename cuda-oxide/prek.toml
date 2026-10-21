@@ -1,10 +1,7 @@
-#:tombi toml-version = "v1.1.0"
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#:tombi toml-version = "v1.1.0"
 
-# Match the SIMT scopes in .github/workflows/fmt.yml and clippy.yml.
-# The standalone example Clippy sweep stays in CI.
-# Prek runs these hooks from this directory with project-relative paths.
 default_stages = ["pre-commit"]
 
 # File-modifying hooks use default sequential order; read-only checks run together.
