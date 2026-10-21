@@ -2,9 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # Prek passes paths relative to its project working directory.
-# Format each affected example package
-# once, including packages inside nested workspaces, as fmt.yml does.
+# Format or lint each affected example package once, including nested packages.
 set -euo pipefail
+
+case "${1:-}" in
+    fmt) args=(fmt) ;;
+    clippy) args=(clippy --locked --all-targets -- -D warnings) ;;
+    *) printf 'usage: %s {fmt|clippy} [files...]\n' "$0" >&2; exit 2 ;;
+esac
+shift
 
 root=$(git rev-parse --show-toplevel)
 examples="$root/cuda-oxide/crates/rustc-codegen-cuda/examples"
@@ -31,6 +37,6 @@ done
 # Let rustup select each package's directory-scoped toolchain.
 unset RUSTUP_TOOLCHAIN
 for dir in "${directories[@]}"; do
-    # Avoid --all: it repeatedly formats the examples' shared path dependencies.
-    (cd "$dir" && cargo fmt)
+    # Formatting avoids --all: it repeatedly formats shared path dependencies.
+    (cd "$dir" && cargo "${args[@]}")
 done

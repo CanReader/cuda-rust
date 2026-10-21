@@ -118,7 +118,7 @@ hooks = [
     id = "cargo-fmt-examples",
     name = "format changed SIMT example crates",
     language = "system",
-    entry = "bash scripts/fmt-changed-examples.sh",
+    entry = "bash scripts/check-changed-examples.sh fmt",
     files = '''(?x)
       ^crates/rustc-codegen-cuda/examples/.*(
         \.rs
@@ -128,5 +128,35 @@ hooks = [
       )$
     ''',
     require_serial = true
+  },
+  {
+    id = "cargo-clippy-examples",
+    priority = "read-only",
+    name = "lint changed SIMT example crates",
+    language = "system",
+    entry = "bash scripts/check-changed-examples.sh clippy",
+    files = '''(?x)
+      ^crates/rustc-codegen-cuda/examples/.*(
+        \.rs
+        | Cargo\.(toml|lock)
+        | rust-toolchain\.toml
+        | clippy\.toml
+      )$
+    ''',
+    require_serial = true
+  },
+  {
+    id = "check-example-smoketest-contract",
+    priority = "read-only",
+    name = "check SIMT example smoketest contract",
+    language = "system",
+    entry = "bash scripts/check-example-smoketest-contract.sh",
+    files = '''(?x)
+      ^(
+        crates/rustc-codegen-cuda/examples/.*
+        | scripts/(smoketest|check-example-smoketest-contract)\.sh
+      )$
+    ''',
+    pass_filenames = false
   },
 ]
