@@ -22,6 +22,13 @@ use std::sync::Arc;
 
 use cuda_core::{CudaContext, DeviceBuffer};
 
+fn wait_for_retirement(ctx: &Arc<CudaContext>, baseline: usize) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while Arc::strong_count(ctx) != baseline && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
 /// A live buffer must hold exactly one extra context strong count, and the
 /// count must return to baseline once the buffer drops. A construction
 /// helper that `mem::forget`s a context clone (as an arm/disarm pointer
@@ -44,6 +51,7 @@ fn ctx_strong_count_returns_to_baseline_after_buffer_lifecycle() {
         drop(buf);
     }
 
+    wait_for_retirement(&ctx, baseline);
     assert_eq!(
         Arc::strong_count(&ctx),
         baseline,
@@ -55,6 +63,7 @@ fn ctx_strong_count_returns_to_baseline_after_buffer_lifecycle() {
         drop(buf);
     }
 
+    wait_for_retirement(&ctx, baseline);
     assert_eq!(
         Arc::strong_count(&ctx),
         baseline,
@@ -129,6 +138,7 @@ fn zero_length_construction_succeeds_for_both_constructors() {
 
     drop(zeroed);
     drop(from_host);
+    wait_for_retirement(&ctx, baseline);
     assert_eq!(
         Arc::strong_count(&ctx),
         baseline,

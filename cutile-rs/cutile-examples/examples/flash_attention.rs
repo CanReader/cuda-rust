@@ -5,7 +5,7 @@
 extern crate core;
 
 use cuda_async::device_operation::{DeviceOp, Unzippable6};
-use cuda_core::Device;
+use cuda_core::Context;
 use cutile::api::{randn, zeros};
 use cutile::error::Error;
 use cutile::tensor::{IntoPartition, Partition, Tensor, ToHostVec, Unpartition};
@@ -149,8 +149,8 @@ fn fmha(
     bn: usize,  // k, v seq len part size.
     bbh: usize, // batch * num_heads part size.
 ) -> Result<(), Error> {
-    // Create a context. Device 0 is associated with the context.
-    let device = Device::new(0)?;
+    // Create the primary context for GPU 0.
+    let device = Context::new(0)?;
     // Create a new stream on which we run CUDA operations.
     let stream = device.new_stream()?;
 
@@ -207,7 +207,7 @@ fn fmha(
     .reshape(((), m, d))
     .expect("Failed to reshape.");
     let out_candle =
-        candle_core::Tensor::from_slice(&out_vec, &[b * h, m, d], &candle_core::Device::Cpu)
+        candle_core::Tensor::from_slice(&out_vec, &[b * h, m, d], &candle_core::Context::Cpu)
             .unwrap();
     println!("out shape = {:?}", out_candle.shape());
     for i in 0..(b * h) {

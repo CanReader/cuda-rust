@@ -14,12 +14,12 @@ use candle_nn::ops::softmax;
 #[cfg(feature = "reference-cpu")]
 use cuda_core::DType;
 
-use cuda_core::{get_device_clock_rate, Device};
+use cuda_core::{get_device_clock_rate, Context};
 
 /// Convert a host slice to a candle CPU tensor.
 #[cfg(feature = "reference-cpu")]
 pub fn to_candle_tensor<T: DType + WithDType>(data: &[T], shape: &[usize]) -> candle_core::Tensor {
-    candle_core::Tensor::from_slice(data, shape, &candle_core::Device::Cpu).unwrap()
+    candle_core::Tensor::from_slice(data, shape, &candle_core::Context::Cpu).unwrap()
 }
 
 /// Prints a 2D candle tensor in a formatted table for debugging.
@@ -77,11 +77,11 @@ pub fn fmha_ref_exec<T: WithDType>(
     sm_scale: T,
 ) -> candle_core::Tensor {
     let q_host =
-        candle_core::Tensor::from_slice(q_data, q_shape, &candle_core::Device::Cpu).unwrap();
+        candle_core::Tensor::from_slice(q_data, q_shape, &candle_core::Context::Cpu).unwrap();
     let k_host =
-        candle_core::Tensor::from_slice(k_data, k_shape, &candle_core::Device::Cpu).unwrap();
+        candle_core::Tensor::from_slice(k_data, k_shape, &candle_core::Context::Cpu).unwrap();
     let v_host =
-        candle_core::Tensor::from_slice(v_data, v_shape, &candle_core::Device::Cpu).unwrap();
+        candle_core::Tensor::from_slice(v_data, v_shape, &candle_core::Context::Cpu).unwrap();
     let k_trans = k_host.transpose(2, 3).expect("Failed to transpose k.");
     let qk = q_host
         .broadcast_matmul(&k_trans)
@@ -134,7 +134,7 @@ pub fn rtx_5090_tensorcore_f16_sol_tflops_at(clock_speed: f64) -> f64 {
 
 /// Returns RTX 5090 theoretical peak f16 tensor core TFLOPS using the device's clock rate.
 pub fn rtx_5090_tensorcore_f16_sol_tflops(device_id: usize) -> f64 {
-    let device = Device::new(device_id).unwrap();
+    let device = Context::new(device_id).unwrap();
     let clock_rate = unsafe { get_device_clock_rate(device.cu_device()).unwrap() } as f64;
     rtx_5090_tensorcore_f16_sol_tflops_at(clock_rate)
 }
@@ -142,11 +142,11 @@ pub fn rtx_5090_tensorcore_f16_sol_tflops(device_id: usize) -> f64 {
 #[cfg(test)]
 mod test_peak {
     use crate::rtx_5090_tensorcore_f16_sol_tflops_at;
-    use cuda_core::{get_device_clock_rate, Device};
+    use cuda_core::{get_device_clock_rate, Context};
 
     #[test]
     fn test_5090() {
-        let device = Device::new(0).unwrap();
+        let device = Context::new(0).unwrap();
         // This appears to be correct / matches architecture documentation.
         let clock_rate = unsafe { get_device_clock_rate(device.cu_device()).unwrap() } as f64;
         let clock_mhz = clock_rate * 1e-3;

@@ -138,7 +138,7 @@ cuda-oxide is split into focused crates. Here is every one and its role:
 | `cuda-device`        | Device-side API: intrinsics, `DisjointSlice`, barriers, shared memory, warp ops        |
 | `cuda-macros`        | Proc macros: `#[kernel]`, `#[device]`                                                  |
 | `cuda-host`          | Host-side typed module loading and launch helpers                                      |
-| `cuda-core`          | Shared with cutile-rs: safe Driver API bindings; SIMT surface under `cuda_core::simt`   |
+| `cuda-core`          | Shared with cutile-rs: safe Driver API bindings; shared context, stream and buffer types   |
 | `cuda-core-derive`   | Shared with cutile-rs: `#[derive(DeviceCopy)]` proc-macro for `cuda-core`              |
 | `cuda-async`         | Shared with cutile-rs: `DeviceOperation` model and combinators under `cuda_async::simt` |
 | `cuda-bindings`      | Shared with cutile-rs: FFI to the CUDA driver; `libcuda` is loaded at run time         |
