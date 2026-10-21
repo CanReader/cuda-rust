@@ -292,8 +292,8 @@ The following pattern:
 * Reads the same physical memory through GPU 1's mapping.
 
 ```rust
-use cuda_core::{peer, vmm};
 use cuda_core::{CudaContext, DriverError, IntoResult};
+use cuda_core::{peer, vmm};
 use std::mem::MaybeUninit;
 
 fn gpu_count() -> Result<usize, DriverError> {
