@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Advance the lockstep Tile and shared host crates to v0.5.0 for the breaking
+  safety-contract and host-runtime changes.
 - cuTile Rust now lives in the [NVIDIA/cuda-rust](https://github.com/NVIDIA/cuda-rust)
   repository under `cutile-rs/`, next to cuda-oxide (SIMT) and the shared host
   crates (`cuda-bindings`, `cuda-core`, `cuda-core-derive`, `cuda-async`) at the
