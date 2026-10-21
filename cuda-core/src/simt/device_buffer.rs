@@ -33,8 +33,9 @@ use std::mem::MaybeUninit;
 use std::num::Wrapping;
 use std::sync::Arc;
 
-use bytemuck::{AnyBitPattern, TransparentWrapper};
+use bytemuck::AnyBitPattern;
 use cuda_bindings::CUdeviceptr;
+use cuda_repr::DeviceRepr;
 
 use crate::error::DriverError;
 use crate::simt::context::CudaContext;
@@ -324,29 +325,33 @@ impl<T> DeviceBuffer<T> {
     /// pointee permits shared mutation, so rustc does not mark the slice
     /// `readonly`/`noalias`.
     ///
-    /// `W: TransparentWrapper<T>` is the soundness argument: the wrapper has
-    /// the layout and the valid values of `T`, which is what the `bytemuck`
-    /// contract promises, so relabelling the allocation cannot produce an
-    /// invalid value. The wrapper need not be `Copy` or `DeviceCopy`; the
+    /// `W: DeviceRepr<T>` guarantees the same layout and valid initialized
+    /// representations in both directions, without element destruction or
+    /// additional ownership obligations. It permits no shared-reference conversions.
+    /// The wrapper need not be `Copy` or `DeviceCopy`; the
     /// atomic types are neither. [`Self::peel_elem`] goes back to `T`, for
     /// example before [`Self::to_host_vec`].
-    pub fn wrap_elem<W: TransparentWrapper<T>>(self) -> DeviceBuffer<W> {
-        // SAFETY: `W` is a transparent wrapper of `T`, so every `T` in the
-        // allocation is a valid `W`; `relabel` checks the layout.
+    ///
+    /// This consumes the buffer and retains its allocation, context, and
+    /// deallocation stream. It does not synchronize pending kernel accesses;
+    /// those must obey the launch API's borrowing and ordering requirements.
+    pub fn wrap_elem<W: DeviceRepr<T>>(self) -> DeviceBuffer<W> {
+        // SAFETY: DeviceRepr guarantees every initialized T representation
+        // is valid as W; relabel preserves ownership and checks the layout.
         unsafe { self.relabel() }
     }
 
     /// Remove a `#[repr(transparent)]` wrapper from the element type.
     ///
-    /// The inverse of [`Self::wrap_elem`]: `T` must be a `TransparentWrapper`
-    /// around `I`, so a `DeviceBuffer<DeviceAtomicU64>` peels back to the
+    /// The inverse of [`Self::wrap_elem`]: `T` must implement `DeviceRepr<I>`,
+    /// so a `DeviceBuffer<DeviceAtomicU64>` peels back to the
     /// `DeviceBuffer<u64>` it was made from, which can be read on the host.
     pub fn peel_elem<I>(self) -> DeviceBuffer<I>
     where
-        T: TransparentWrapper<I>,
+        T: DeviceRepr<I>,
     {
-        // SAFETY: `T` is a transparent wrapper of `I`, so every `T` in the
-        // allocation is a valid `I`; `relabel` checks the layout.
+        // SAFETY: DeviceRepr guarantees every initialized T representation
+        // is valid as I; relabel preserves ownership and checks the layout.
         unsafe { self.relabel() }
     }
 
@@ -597,8 +602,12 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
         unsafe { Self::from_host_async_unchecked(stream, data.as_slice()) }
     }
 
-    /// Allocates zero-initialized device memory of `len` elements, enqueued
-    /// on `stream`.
+    /// Allocates zero-initialized device memory of `len` elements.
+    ///
+    /// The zero-fill is enqueued on `stream`, then this method synchronizes
+    /// that stream before returning. The initialized buffer is therefore safe
+    /// to use on another stream, including for types such as `bool` whose
+    /// validity depends on initialization having completed.
     ///
     /// A `len` of zero (or a zero-sized `T`) yields an empty buffer without
     /// touching the driver allocator.
@@ -607,9 +616,9 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
     ///
     /// The returned buffer takes ownership of the device allocation
     /// immediately after `malloc_sync`, before the fallible
-    /// `memset_d8_async` enqueue runs. If the enqueue fails, the early
-    /// return drops the buffer and its `Drop` impl frees the allocation, so
-    /// no device memory is leaked.
+    /// `memset_d8_async` enqueue and stream synchronization run. If either
+    /// fails, the early return drops the buffer and its `Drop` impl frees the
+    /// allocation, so no device memory is leaked.
     pub fn zeroed(stream: &CudaStream, len: usize) -> Result<Self, DriverError> {
         let ctx = stream.context().clone();
         let num_bytes = allocation_size::<T>(len)?;
@@ -630,6 +639,7 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
         unsafe {
             crate::simt::memory::memset_d8_async(buf.ptr, 0, num_bytes, stream.cu_stream())?;
         }
+        stream.synchronize()?;
         Ok(buf)
     }
 

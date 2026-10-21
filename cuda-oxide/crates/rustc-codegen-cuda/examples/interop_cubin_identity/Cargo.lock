@@ -155,6 +155,7 @@ dependencies = [
  "bytemuck",
  "cuda-bindings",
  "cuda-core-derive",
+ "cuda-repr",
  "half",
  "oxide-artifacts",
 ]
@@ -167,6 +168,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "cuda-repr"
+version = "0.4.0"
 
 [[package]]
 name = "digest"

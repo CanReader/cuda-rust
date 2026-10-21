@@ -5,7 +5,7 @@
 //!
 //! `cast_elem` and `cast_chunks` reinterpret bytes, so their target must be
 //! `bytemuck::AnyBitPattern`; `wrap_elem` and `peel_elem` relabel through a
-//! `bytemuck::TransparentWrapper`. `bool` is neither, so no safe cast can
+//! `cuda_core::DeviceRepr`. `bool` is neither, so no safe cast can
 //! turn byte storage into a `DeviceBuffer<bool>`. These cases only need to
 //! compile or fail to compile; none touches a GPU. Regenerate the
 //! expectations with `TRYBUILD=overwrite cargo test -p cuda-core --test

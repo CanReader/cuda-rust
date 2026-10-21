@@ -15,11 +15,11 @@ readme = "README.md"
 # copy depend on a crates.io cuda-bindings instead of the one beside it.
 cuda-bindings = { version = "=0.4.0", path = "../cuda-bindings" }
 cuda-core-derive = { version = "=0.4.0", path = "../cuda-core-derive" }
+cuda-repr = { version = "=0.4.0", path = "../cuda-repr" }
 anyhow = "1"
-# `AnyBitPattern` bounds the safe reinterpreting casts on `DeviceBuffer` and
-# `TransparentWrapper` is the atomic-slice mapping; both are re-exported at the
-# crate root so downstream crates can implement them without a second
-# dependency. `min_const_generics` gives `Pod` for arrays of every length.
+# `AnyBitPattern` bounds safe reinterpreting casts on `DeviceBuffer`.
+# Re-exported at the crate root for downstream element types.
+# `min_const_generics` gives `Pod` for arrays of every length.
 bytemuck = { version = "1", features = ["min_const_generics"] }
 # The `bytemuck` feature makes `f16` and `bf16` `Pod`, so a buffer or tensor
 # can be reinterpreted as either of them.

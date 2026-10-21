@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `DeviceBuffer::zeroed` waits for initialization to finish before returning,
+  so another stream cannot read uninitialized element representations.
+- Atomic buffer conversions use `DeviceRepr` instead of `TransparentWrapper`,
+  preserving owned-buffer conversions without permitting invalid shared-reference
+  conversions between atomics and their scalar representations.
 - `Tensor::reinterpret` requires the target element type to implement
   `bytemuck::AnyBitPattern`. Reinterpreting byte storage as `Tensor<bool>`
   could expose values other than `0` and `1`, which is undefined behavior

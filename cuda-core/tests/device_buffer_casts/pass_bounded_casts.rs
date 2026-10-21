@@ -3,16 +3,16 @@
 
 use std::num::Wrapping;
 
-use cuda_core::bytemuck::TransparentWrapper;
-use cuda_core::DeviceBuffer;
+use cuda_core::{DeviceBuffer, DeviceRepr};
 
 // A wrapper that is not `Copy`, like the atomic types in cuda-device: it can
 // be wrapped and peeled, but not reinterpreted into with `cast_elem`.
 #[repr(transparent)]
-struct Counter(u32);
+struct Counter(std::cell::UnsafeCell<u32>);
 
-// SAFETY: `#[repr(transparent)]` over `u32` with no other fields.
-unsafe impl TransparentWrapper<u32> for Counter {}
+// SAFETY: transparent over UnsafeCell<u32>, which has u32's layout and valid
+// representations, and neither representation owns resources or needs Drop.
+unsafe impl DeviceRepr<u32> for Counter {}
 
 // Every bit pattern is a valid `f32`, so bytes written as `u32` are fine.
 fn reinterpret(words: DeviceBuffer<u32>) -> DeviceBuffer<f32> {

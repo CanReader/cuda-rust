@@ -181,8 +181,10 @@ macro_rules! define_integer_atomic {
         // fields, so it has the layout and the valid values of `$ty`. This
         // lets a `DeviceBuffer<$ty>` be viewed as `DeviceBuffer<$Name>` with
         // cuda-core's `DeviceBuffer::wrap_elem` and turned back with
-        // `peel_elem` so the host can read the result.
-        unsafe impl bytemuck::TransparentWrapper<$ty> for $Name {}
+        // `peel_elem` so the host can read the result. Neither type needs
+        // destruction or owns resources. DeviceRepr exposes no reference
+        // conversions: &integer and &atomic have different aliasing rules.
+        unsafe impl cuda_repr::DeviceRepr<$ty> for $Name {}
 
         impl $Name {
             /// Create a new atomic with the given initial value.
@@ -385,8 +387,10 @@ macro_rules! define_float_atomic {
         // fields, so it has the layout and the valid values of `$ty`. This
         // lets a `DeviceBuffer<$ty>` be viewed as `DeviceBuffer<$Name>` with
         // cuda-core's `DeviceBuffer::wrap_elem` and turned back with
-        // `peel_elem` so the host can read the result.
-        unsafe impl bytemuck::TransparentWrapper<$ty> for $Name {}
+        // `peel_elem` so the host can read the result. Neither type needs
+        // destruction or owns resources. DeviceRepr exposes no reference
+        // conversions: &float and &atomic have different aliasing rules.
+        unsafe impl cuda_repr::DeviceRepr<$ty> for $Name {}
 
         impl $Name {
             /// Create a new atomic with the given initial value.

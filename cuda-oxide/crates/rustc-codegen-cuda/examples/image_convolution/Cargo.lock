@@ -178,6 +178,7 @@ dependencies = [
  "bytemuck",
  "cuda-bindings",
  "cuda-core-derive",
+ "cuda-repr",
  "half",
  "oxide-artifacts",
 ]
@@ -197,6 +198,7 @@ version = "0.2.1"
 dependencies = [
  "bytemuck",
  "cuda-macros",
+ "cuda-repr",
 ]
 
 [[package]]
@@ -224,6 +226,10 @@ dependencies = [
  "reserved-oxide-symbols",
  "syn",
 ]
+
+[[package]]
+name = "cuda-repr"
+version = "0.4.0"
 
 [[package]]
 name = "cuda-target-spec"

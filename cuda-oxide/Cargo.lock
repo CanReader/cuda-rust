@@ -420,6 +420,7 @@ dependencies = [
  "bytemuck",
  "cuda-bindings",
  "cuda-core-derive",
+ "cuda-repr",
  "half",
  "oxide-artifacts 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -439,6 +440,7 @@ version = "0.2.1"
 dependencies = [
  "bytemuck",
  "cuda-macros",
+ "cuda-repr",
  "trybuild",
 ]
 
@@ -512,6 +514,10 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
 ]
+
+[[package]]
+name = "cuda-repr"
+version = "0.4.0"
 
 [[package]]
 name = "cuda-target-spec"
