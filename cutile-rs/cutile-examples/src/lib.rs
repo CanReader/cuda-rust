@@ -19,7 +19,7 @@ use cuda_core::{get_device_clock_rate, Context};
 /// Convert a host slice to a candle CPU tensor.
 #[cfg(feature = "reference-cpu")]
 pub fn to_candle_tensor<T: DType + WithDType>(data: &[T], shape: &[usize]) -> candle_core::Tensor {
-    candle_core::Tensor::from_slice(data, shape, &candle_core::Context::Cpu).unwrap()
+    candle_core::Tensor::from_slice(data, shape, &candle_core::Device::Cpu).unwrap()
 }
 
 /// Prints a 2D candle tensor in a formatted table for debugging.
@@ -77,11 +77,11 @@ pub fn fmha_ref_exec<T: WithDType>(
     sm_scale: T,
 ) -> candle_core::Tensor {
     let q_host =
-        candle_core::Tensor::from_slice(q_data, q_shape, &candle_core::Context::Cpu).unwrap();
+        candle_core::Tensor::from_slice(q_data, q_shape, &candle_core::Device::Cpu).unwrap();
     let k_host =
-        candle_core::Tensor::from_slice(k_data, k_shape, &candle_core::Context::Cpu).unwrap();
+        candle_core::Tensor::from_slice(k_data, k_shape, &candle_core::Device::Cpu).unwrap();
     let v_host =
-        candle_core::Tensor::from_slice(v_data, v_shape, &candle_core::Context::Cpu).unwrap();
+        candle_core::Tensor::from_slice(v_data, v_shape, &candle_core::Device::Cpu).unwrap();
     let k_trans = k_host.transpose(2, 3).expect("Failed to transpose k.");
     let qk = q_host
         .broadcast_matmul(&k_trans)

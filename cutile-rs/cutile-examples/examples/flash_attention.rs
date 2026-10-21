@@ -207,7 +207,7 @@ fn fmha(
     .reshape(((), m, d))
     .expect("Failed to reshape.");
     let out_candle =
-        candle_core::Tensor::from_slice(&out_vec, &[b * h, m, d], &candle_core::Context::Cpu)
+        candle_core::Tensor::from_slice(&out_vec, &[b * h, m, d], &candle_core::Device::Cpu)
             .unwrap();
     println!("out shape = {:?}", out_candle.shape());
     for i in 0..(b * h) {
