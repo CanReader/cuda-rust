@@ -11,9 +11,32 @@ read-only = 100
 [[repos]]
 repo = "builtin"
 hooks = [
-  { id = "trailing-whitespace", stages = ["pre-commit"] },
+  # Preserve captured artifacts as specified in the paper's .gitattributes.
+  {
+    id = "trailing-whitespace",
+    stages = ["pre-commit"],
+    exclude = '''(?x)
+      ^(
+      cuda-oxide/cuda-oxide-book/_(static|templates)/.*|
+      cutile-rs/cutile-book/_(static|templates)/.*|
+      cutile-rs/cutile-benchmarks/paper/.*\.(csv|jsonl|log|txt)$
+      )$
+    '''
+  },
   { id = "check-added-large-files", stages = ["pre-commit"], priority = "read-only" },
-  { id = "end-of-file-fixer", stages = ["pre-commit"] },
+  # Also preserve generated probe EOFs allowed by cuda-oxide/.gitattributes.
+  {
+    id = "end-of-file-fixer",
+    stages = ["pre-commit"],
+    exclude = '''(?x)
+      ^(
+        cuda-oxide/cuda-oxide-book/_static/.*|
+        cutile-rs/cutile-book/_static/.*|
+        cutile-rs/cutile-benchmarks/paper/.*\.(csv|jsonl|log|txt)|
+        cuda-oxide/intrinsics/probes/[^/]*\.ll
+      )$
+    '''
+  },
   { id = "check-toml", stages = ["pre-commit"], priority = "read-only" },
   { id = "check-yaml", stages = ["pre-commit"], priority = "read-only" },
   {
