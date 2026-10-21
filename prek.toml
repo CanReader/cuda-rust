@@ -42,7 +42,8 @@ hooks = [
     priority = "read-only",
     name = "check license headers",
     language = "system",
-    entry = "./cuda-oxide/scripts/check-spdx-headers.sh"
+    entry = "./cuda-oxide/scripts/check-spdx-headers.sh",
+    pass_filenames = false
   },
   # The inventory spans the shared host and SIMT workspaces and examples.
   # Tile maintains its own dependency policy and is outside this CSV's scope.
