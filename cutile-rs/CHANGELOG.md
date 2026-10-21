@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Host-side `KernelInputStored` and `KernelOutputStored` require `unsafe impl`
+  with explicit type, ABI, extent, retention, and access obligations. Safe custom
+  bindings can no longer mislabel boolean storage as byte kernel arguments.
+- `PinnedHostBuffer` aligns its usable pointer for the element type and frees
+  the original CUDA allocation. Highly aligned host elements no longer produce
+  misaligned Rust slices; sizes exceeding Rust's slice limits are rejected.
 - `DeviceBuffer::zeroed` waits for initialization to finish before returning,
   so another stream cannot read uninitialized element representations.
 - Atomic buffer conversions use `DeviceRepr` instead of `TransparentWrapper`,

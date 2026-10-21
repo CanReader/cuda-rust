@@ -31,3 +31,10 @@ fn ui() {
     // cannot become a `Tensor<bool>`, whose only valid values are 0 and 1.
     t.compile_fail("tests/ui/reinterpret_bool.rs");
 }
+
+#[test]
+fn stored_kernel_arguments_require_unsafe_impl() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/ui/kernel_output_stored_requires_unsafe.rs");
+    t.compile_fail("tests/ui/kernel_input_stored_requires_unsafe.rs");
+}

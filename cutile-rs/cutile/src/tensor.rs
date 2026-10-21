@@ -1870,7 +1870,26 @@ pub enum GridBound {
     AtMost((u32, u32, u32)),
 }
 
-pub trait KernelOutputStored<T: DType>: Send {
+/// A host-side output binding trusted by generated Tile kernel launchers.
+///
+/// # Safety
+///
+/// Implementations must report the actual element type (`T::DTYPE`), shape,
+/// strides, partition mapping, grid constraints, and specialization facts of
+/// their storage. These facts must agree with the arguments emitted by
+/// `push_kernel_args`, in the tensor/partition ABI expected by the launcher.
+/// Pointers must be correctly aligned and cover every element reachable by a
+/// launch accepted by those constraints; initialized elements must be valid `T`
+/// values. Metadata must remain consistent throughout validation and submission.
+///
+/// Before returning success, `retain` must validate context compatibility and
+/// register storage ownership and exclusive device access with `ctx`, including
+/// graph replay retention when capturing. These protections must last until GPU
+/// completion even if this binding or its future is dropped or forgotten. A
+/// Rust borrow or ownership of the binding alone is insufficient. In particular,
+/// relabelling a `Tensor<bool>` as byte output is unsound: a byte kernel could
+/// write an invalid boolean representation.
+pub unsafe trait KernelOutputStored<T: DType>: Send {
     /// Retain storage and acquire exclusive device access before enqueueing.
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError>;
     fn push_kernel_args(&self, launcher: &mut AsyncKernelLaunch);
@@ -1900,6 +1919,9 @@ pub trait KernelOutputStored<T: DType>: Send {
 /// | `Partition<Tensor<T>>` | `Partition<Tensor<T>>` | `Partition<Tensor<T>>` |
 /// | `Partition<&'a mut Tensor<T>>` | `Partition<&'a mut Tensor<T>>` | `Partition<&'a mut Tensor<T>>` |
 /// | `MappedLaunchPartition<Partition<..>>` | `MappedLaunchPartition<Partition<..>>` | `Partition<..>` |
+///
+/// This conversion trait is safe to implement; its stored form must satisfy
+/// the unsafe host-side [`KernelOutputStored`] contract.
 pub trait KernelOutput<T: DType>: Send + Sized {
     type Stored: KernelOutputStored<T>;
     type Returned: Send;
@@ -1907,7 +1929,10 @@ pub trait KernelOutput<T: DType>: Send + Sized {
     fn recover(stored: Self::Stored) -> Self::Returned;
 }
 
-impl<T: DType> KernelOutputStored<T> for Partition<Tensor<T>> {
+// SAFETY: metadata and arguments come from the same typed tensor and partition.
+// Storage::retain registers its owner and exclusive access for the submission
+// (or graph replay), independently of this binding's lifetime.
+unsafe impl<T: DType> KernelOutputStored<T> for Partition<Tensor<T>> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.object.storage.retain(ctx, true)
     }
@@ -1965,7 +1990,10 @@ impl<T: DType> KernelOutputStored<T> for Partition<Tensor<T>> {
     }
 }
 
-impl<T: DType> KernelOutputStored<T> for Partition<&mut Tensor<T>> {
+// SAFETY: the typed tensor/partition supplies the metadata and ABI arguments.
+// Storage::retain keeps the owner and exclusive access alive independently of
+// the mutable borrow, including when a pending submission is abandoned.
+unsafe impl<T: DType> KernelOutputStored<T> for Partition<&mut Tensor<T>> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.object.storage.retain(ctx, true)
     }
@@ -2023,7 +2051,9 @@ impl<T: DType> KernelOutputStored<T> for Partition<&mut Tensor<T>> {
     }
 }
 
-impl<T: DType> KernelOutputStored<T> for MappedLaunchPartition<Partition<Tensor<T>>> {
+// SAFETY: storage, metadata and arguments delegate to the trusted partition;
+// validate checks the map against its logical grid and physical block count.
+unsafe impl<T: DType> KernelOutputStored<T> for MappedLaunchPartition<Partition<Tensor<T>>> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.partition.retain(ctx)
     }
@@ -2063,7 +2093,9 @@ impl<T: DType> KernelOutputStored<T> for MappedLaunchPartition<Partition<Tensor<
     }
 }
 
-impl<T: DType> KernelOutputStored<T> for MappedLaunchPartition<Partition<&mut Tensor<T>>> {
+// SAFETY: delegates retention and ABI facts to the trusted borrowed partition;
+// validate checks the mapping without weakening storage lifetime or access.
+unsafe impl<T: DType> KernelOutputStored<T> for MappedLaunchPartition<Partition<&mut Tensor<T>>> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.partition.retain(ctx)
     }
@@ -2156,11 +2188,27 @@ impl<'a, T: DType> KernelOutput<T> for MappedLaunchPartition<Partition<&'a mut T
 // Defined here (not in cuda-async) so that impls on Arc<Tensor<T>> satisfy
 // the orphan rule — both trait and Tensor<T> are in the same crate.
 
-/// How a stored kernel input pushes its arguments to the launcher.
+/// How a host-side stored kernel input pushes its arguments to the launcher.
 ///
-/// Implemented for `Arc<Tensor<T>>` and `&Tensor<T>`. Both push the same
+/// Implemented for `Arc<Tensor<T>>`, `&Tensor<T>`, and tensor views. They push
 /// data: device pointer, shape, and strides.
-pub trait KernelInputStored: Send {
+///
+/// # Safety
+///
+/// `dtype_str`, shape, strides, and specialization facts must describe the
+/// actual initialized element representations and agree with the tensor ABI
+/// arguments emitted by `push_kernel_args`. Pointers, including view offsets,
+/// must be correctly aligned and all elements reachable through the reported
+/// shape/strides must be in bounds. Metadata must remain consistent throughout
+/// validation and submission. The launcher checks the reported dtype against
+/// the kernel type; it cannot verify that an implementation reported it honestly.
+///
+/// Before returning success, `retain` must validate context compatibility and
+/// register storage ownership and shared device access with `ctx`, including
+/// graph replay retention when capturing. Storage and access protection must
+/// survive until GPU completion even if the binding or future is dropped or
+/// forgotten; borrowing the input or holding it in the binding is insufficient.
+pub unsafe trait KernelInputStored: Send {
     /// Retain storage and acquire shared device access before enqueueing.
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError>;
     fn push_kernel_args(&self, launcher: &mut AsyncKernelLaunch);
@@ -2178,6 +2226,9 @@ pub trait KernelInputStored: Send {
 /// | `Tensor<T>` | `Arc<Tensor<T>>` | `Tensor<T>` | Yes |
 /// | `Arc<Tensor<T>>` | `Arc<Tensor<T>>` | `Arc<Tensor<T>>` | Yes |
 /// | `&'a Tensor<T>` | `&'a Tensor<T>` | `&'a Tensor<T>` | No |
+///
+/// This conversion trait is safe to implement; its stored form must satisfy
+/// the unsafe host-side [`KernelInputStored`] contract.
 pub trait KernelInput<T: DType>: Send + Sized {
     type Stored: KernelInputStored;
     type Returned: Send;
@@ -2187,7 +2238,9 @@ pub trait KernelInput<T: DType>: Send + Sized {
 
 // ── KernelInputStored impls ─────────────────────────────────────────────────
 
-impl<T: DType> KernelInputStored for Arc<Tensor<T>> {
+// SAFETY: the typed tensor supplies all ABI and specialization facts, and
+// Storage::retain independently holds its owner and shared access until completion.
+unsafe impl<T: DType> KernelInputStored for Arc<Tensor<T>> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.storage.retain(ctx, false)
     }
@@ -2216,7 +2269,9 @@ impl<T: DType> KernelInputStored for Arc<Tensor<T>> {
     }
 }
 
-impl<T: DType + Sync> KernelInputStored for &Tensor<T> {
+// SAFETY: arguments describe the borrowed typed tensor, and Storage::retain
+// registers its owner and shared access independently of this Rust borrow.
+unsafe impl<T: DType + Sync> KernelInputStored for &Tensor<T> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.storage.retain(ctx, false)
     }
@@ -2282,7 +2337,10 @@ impl<'a, T: DType + Sync> KernelInput<T> for &'a Tensor<T> {
 
 // ── TensorView KernelInput impls ────────────────────────────────────────────
 
-impl<'a, T: DType + Sync> KernelInputStored for &'a TensorView<'a, T> {
+// SAFETY: view construction validates the offset/extent and preserves element
+// alignment. Arguments use that offset and the view's shape/strides/spec;
+// retention protects the base allocation and shared access until completion.
+unsafe impl<'a, T: DType + Sync> KernelInputStored for &'a TensorView<'a, T> {
     fn retain(&self, ctx: &ExecutionContext) -> Result<(), DeviceError> {
         self.base.storage.retain(ctx, false)
     }
