@@ -340,9 +340,26 @@ fn partial_submission_error_retains_discarded_resources() {
         let result = Pin::new(&mut future).poll(&mut Context::from_waker(&waker));
         assert!(matches!(result, std::task::Poll::Ready(Err(_))));
         assert!(Arc::strong_count(&owner) > 1);
-        drop(gate);
+        let start = std::time::Instant::now();
         drop(future);
-        assert_eq!(Arc::strong_count(&owner), 1);
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "drop waited on a gated stream"
+        );
+        assert!(
+            Arc::strong_count(&owner) > 1,
+            "drop released GPU storage before completion"
+        );
+        drop(gate);
+        stream.synchronize().unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while Arc::strong_count(&owner) != 1 {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "completed storage was not retired"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
     });
 }
 
@@ -363,9 +380,26 @@ fn partial_submission_panic_retains_discarded_resources() {
         }));
         assert!(panic.is_err());
         assert!(Arc::strong_count(&owner) > 1);
-        drop(gate);
+        let start = std::time::Instant::now();
         drop(future);
-        assert_eq!(Arc::strong_count(&owner), 1);
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "drop waited on a gated stream"
+        );
+        assert!(
+            Arc::strong_count(&owner) > 1,
+            "drop released GPU storage before completion"
+        );
+        drop(gate);
+        stream.synchronize().unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while Arc::strong_count(&owner) != 1 {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "completed storage was not retired"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
     });
 }
 

@@ -4,7 +4,7 @@
  */
 #![cfg(feature = "async")]
 
-use cuda_async::simt::{
+use cuda_async::{
     device_operation::DeviceOperation, launch::AsyncKernelLaunchBuilder,
     scheduling_policies::SingleStream,
 };
@@ -67,9 +67,7 @@ fn pending_launch_keeps_access(forget: bool, atomic: bool) {
         })
     };
     let mut future = launch
-        .schedule(&SingleStream {
-            stream: Some(stream.clone()),
-        })
+        .schedule(&SingleStream::from_stream(stream.clone()))
         .unwrap();
     assert!(
         Pin::new(&mut future)
@@ -87,10 +85,21 @@ fn pending_launch_keeps_access(forget: bool, atomic: bool) {
     );
     drop(gate);
     stream.synchronize().unwrap();
-    assert!(
-        storage.acquire(&other, false, false).is_ok(),
-        "completed work must release exclusion"
-    );
+    if forget {
+        assert!(
+            storage.acquire(&other, false, false).is_err(),
+            "a forgotten submission conservatively retains its access leases"
+        );
+    } else {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while storage.acquire(&other, false, false).is_err() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "completed work failed to release exclusion"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
 }
 
 #[test]
@@ -107,4 +116,49 @@ fn forgotten_borrowed_launch_retains_buffers_and_accesses() {
 #[ignore = "requires a live CUDA GPU"]
 fn shared_atomic_arguments_exclude_ordinary_reads_after_drop() {
     pending_launch_keeps_access(false, true);
+}
+
+#[test]
+#[ignore = "requires a live CUDA GPU"]
+fn device_box_preserves_concurrent_read_permissions() {
+    let context = Context::new(0).unwrap();
+    let stream = context.new_stream().unwrap();
+    let other = context.new_stream().unwrap();
+    let function = Arc::new(
+        context
+            .load_module_from_ptx_src(PTX)
+            .unwrap()
+            .load_function("use_slice")
+            .unwrap(),
+    );
+    let buffer = cuda_async::device_box::DeviceBox::from_buffer(
+        DeviceBuffer::from_host(&stream, &[1u32; 32]).unwrap(),
+    );
+    let make_launch = || {
+        let mut builder = AsyncKernelLaunchBuilder::new(function.clone());
+        cuda_host::push_async_read_only_device_slice(&mut builder, &buffer);
+        // SAFETY: the PTX's pointer/length signature matches this descriptor;
+        // the no-op kernel never dereferences the modeled shared slice.
+        unsafe { builder.finalize_unchecked(LaunchConfig::for_num_elems(32)) }
+    };
+    let (tx, rx) = mpsc::channel();
+    stream
+        .launch_host_function(move || {
+            let _ = rx.recv_timeout(Duration::from_secs(10));
+        })
+        .unwrap();
+    let gate = Gate(tx);
+    let mut first = make_launch()
+        .schedule(&SingleStream::from_stream(stream.clone()))
+        .unwrap();
+    assert!(
+        Pin::new(&mut first)
+            .poll(&mut TaskContext::from_waker(Waker::noop()))
+            .is_pending()
+    );
+    // A read on another stream must succeed while the first read is gated.
+    // Treating DeviceBox's ordinary u32 elements as interior-mutable would fail.
+    make_launch().sync_on(&other).unwrap();
+    drop(gate);
+    cuda_async::futures::executor::block_on(first).unwrap();
 }

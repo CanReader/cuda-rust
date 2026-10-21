@@ -123,15 +123,13 @@ pub use launch::{
 };
 
 /// The shared async crate, re-exported whole. Its root is cutile's Tile API;
-/// the SIMT surface cuda-host builds on is `cuda_host::cuda_async::simt::*`.
+/// the SIMT surface cuda-host builds on is `cuda_host::cuda_async::*`.
 /// Same-named root items such as `DeviceError` or `init_device_contexts` are
 /// the Tile ones and do not interoperate with the generated launch methods.
 #[cfg(feature = "async")]
 pub use cuda_async;
 #[cfg(feature = "async")]
-pub use cuda_async::simt::launch::{
-    AsyncKernelLaunch, AsyncKernelLaunchBuilder, OwnedAsyncKernelLaunch,
-};
+pub use cuda_async::launch::{AsyncKernelLaunch, AsyncKernelLaunchBuilder, OwnedAsyncKernelLaunch};
 
 pub use embedded::{
     EmbeddedModuleError, load_all_ptx_bundles_merged, load_embedded_module,
@@ -154,7 +152,7 @@ pub use cuda_macros::{cuda_launch, cuda_module};
 
 /// Re-export of [`cuda_macros::cuda_launch_async`].
 ///
-/// Builds a lazy `cuda_async::simt::launch::AsyncKernelLaunch`. Raw launch
+/// Builds a lazy `cuda_async::launch::AsyncKernelLaunch`. Raw launch
 /// configuration is not tied to the kernel's indexing assumptions, so the
 /// macro must be called inside `unsafe`. Stream assignment is deferred to the
 /// scheduling policy -- call `.sync()` to block or `.await` to suspend.
