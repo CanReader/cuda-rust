@@ -90,11 +90,14 @@ fn vram_returns_to_baseline_after_buffer_cycles() {
         free
     }
 
+    let baseline = Arc::strong_count(&ctx);
+
     // Warm up driver allocator caches so the measured window is stable.
     for _ in 0..4 {
         let b = DeviceBuffer::<u8>::zeroed(&stream, 1 << 20).expect("warmup alloc failed");
         drop(b);
     }
+    wait_for_retirement(&ctx, baseline);
     ctx.synchronize().expect("sync failed");
 
     let before = free_mem();
@@ -102,6 +105,7 @@ fn vram_returns_to_baseline_after_buffer_cycles() {
         let b = DeviceBuffer::<u8>::zeroed(&stream, 1 << 20).expect("cycle alloc failed");
         drop(b);
     }
+    wait_for_retirement(&ctx, baseline);
     ctx.synchronize().expect("sync failed");
     let after = free_mem();
 

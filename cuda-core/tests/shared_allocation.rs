@@ -133,3 +133,19 @@ fn fresh_thread_allocation_binds_its_context() {
     .join()
     .unwrap();
 }
+
+#[test]
+fn empty_and_peeled_buffers_preserve_shared_read_access() {
+    let context = Context::new(0).unwrap();
+    let stream = context.new_stream().unwrap();
+    let empty = DeviceBuffer::<u32>::from_host(&stream, &[]).unwrap();
+    assert!(!empty.shared_access_writes());
+    let zeroed_empty = DeviceBuffer::<u32>::zeroed(&stream, 0).unwrap();
+    assert!(!zeroed_empty.shared_access_writes());
+
+    let words = DeviceBuffer::from_host(&stream, &[1u32, 2, 3]).unwrap();
+    let wrapped = words.wrap_elem::<std::num::Wrapping<u32>>();
+    assert!(wrapped.shared_access_writes());
+    let peeled = wrapped.peel_elem::<u32>();
+    assert!(!peeled.shared_access_writes());
+}
