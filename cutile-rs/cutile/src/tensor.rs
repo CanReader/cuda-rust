@@ -538,6 +538,23 @@ pub(crate) struct Storage {
     accesses: Mutex<Vec<StorageAccess>>,
 }
 
+/// A user-visible storage owner, including aliases and lazy copy operations.
+/// Completion leases retain only `Storage`; their Arc bookkeeping must never
+/// make a real alias look unique or a unique tensor look shared.
+#[derive(Clone, Debug)]
+pub(crate) struct StorageHandle {
+    storage: Arc<Storage>,
+    owners: Arc<()>,
+}
+
+impl std::ops::Deref for StorageHandle {
+    type Target = Arc<Storage>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.storage
+    }
+}
+
 #[derive(Debug)]
 enum Allocation {
     /// A real, owned GPU allocation.
@@ -546,14 +563,27 @@ enum Allocation {
     Meta { len_bytes: usize, device_id: usize },
 }
 
-impl Storage {
+impl StorageHandle {
     fn new(allocation: Allocation) -> Self {
         Self {
-            allocation,
-            accesses: Mutex::new(Vec::new()),
+            storage: Arc::new(Storage {
+                allocation,
+                accesses: Mutex::new(Vec::new()),
+            }),
+            owners: Arc::new(()),
         }
     }
 
+    fn is_unique(&self) -> bool {
+        Arc::strong_count(&self.owners) == 1
+            && match &self.allocation {
+                Allocation::Device(buffer) => buffer.is_unique(),
+                Allocation::Meta { .. } => true,
+            }
+    }
+}
+
+impl Storage {
     pub(crate) fn retain(
         self: &Arc<Self>,
         ctx: &ExecutionContext,
@@ -648,17 +678,6 @@ impl Storage {
         Ok(id)
     }
 
-    fn is_unique(self: &Arc<Self>) -> bool {
-        let accesses = self.accesses.lock().unwrap_or_else(|e| e.into_inner());
-        // Each lease has exactly one internal Arc. Only user-visible aliases
-        // prevent partitioning; same-stream leases are ordered on submission.
-        let allocation_unique = match &self.allocation {
-            Allocation::Device(buffer) => buffer.is_unique(),
-            Allocation::Meta { .. } => true,
-        };
-        allocation_unique && Arc::strong_count(self) == 1 + accesses.len()
-    }
-
     /// 16-aligned sentinel address fed to [`compute_spec`] for meta tensors.
     ///
     /// `DivHint::from_ptr` clamps pointer alignment to 16, and every
@@ -724,9 +743,8 @@ struct StorageAccess {
 
 impl AccessTracked for Storage {
     fn release_access(&self, id: u64) {
-        // Remove the entry before the lease drops its Arc, so uniqueness
-        // checks can be conservative during release but can never overlook
-        // a real alias.
+        // Releasing access and dropping its retaining Arc may happen separately:
+        // neither changes the user-owner token used by uniqueness checks.
         let mut accesses = self.accesses.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(pos) = accesses.iter().position(|access| access.id == id) {
             accesses.swap_remove(pos);
@@ -807,7 +825,7 @@ impl Drop for StorageLease {
 /// ```
 #[derive(Debug)]
 pub struct Tensor<T: DType> {
-    pub(crate) storage: Arc<Storage>,
+    pub(crate) storage: StorageHandle,
     pub(crate) shape: Vec<i32>,
     pub(crate) strides: Vec<i32>,
     pub(crate) spec: SpecializationBits,
@@ -992,7 +1010,7 @@ impl<T: DType> Tensor<T> {
         strides: Vec<i32>,
     ) -> Self {
         Self::assert_valid_metadata(&shape, &strides, device_buffer.len_bytes());
-        let storage = Arc::new(Storage::new(Allocation::Device(device_buffer)));
+        let storage = StorageHandle::new(Allocation::Device(device_buffer));
         let spec = compute_spec(
             storage.cu_deviceptr(),
             &shape,
@@ -1245,10 +1263,10 @@ impl<T: DType> Tensor<T> {
             size_of::<T>() as i32,
         );
         Self {
-            storage: Arc::new(Storage::new(Allocation::Meta {
+            storage: StorageHandle::new(Allocation::Meta {
                 len_bytes,
                 device_id,
-            })),
+            }),
             shape,
             strides,
             spec,
@@ -2620,6 +2638,44 @@ mod tests {
         drop(lease);
         assert!(!tensor.has_unique_storage());
         drop(alias);
+        assert!(tensor.has_unique_storage());
+    }
+
+    #[test]
+    fn registering_access_cannot_hide_a_tensor_alias() {
+        let tensor = Arc::new(meta_f32(&[8]));
+        let alias = (&tensor).reshape(&[2, 4]).unwrap();
+        // Pause at the real acquisition boundary: the access is registered,
+        // but the completion lease has not cloned its retaining Arc yet.
+        let id = tensor.storage.register_access(1, false, false).unwrap();
+        assert!(!alias.has_unique_storage());
+        assert!(alias.try_partition([2, 4]).is_err());
+        tensor.storage.release_access(id);
+        assert!(tensor.has_unique_storage());
+    }
+
+    #[test]
+    fn releasing_access_does_not_wait_for_the_internal_arc_to_drop() {
+        let mut tensor = meta_f32(&[8]);
+        let lease = tensor.storage.acquire(1, false, false).unwrap();
+        // Pause at the real destruction boundary: the access was released,
+        // but the lease still owns its Arc until field destruction runs.
+        lease.storage.release_access(lease.id);
+        assert!(tensor.has_unique_storage());
+        drop((&mut tensor).partition([4]));
+        drop(lease);
+        assert!(tensor.has_unique_storage());
+    }
+
+    #[test]
+    fn lazy_copy_keeps_a_user_visible_storage_alias() {
+        let owner: Arc<dyn DeviceAllocation> = Arc::new(FakeAlloc { len_bytes: 32 });
+        // SAFETY: metadata-only; the copy is never submitted and the pointer
+        // is never dereferenced.
+        let tensor = unsafe { Tensor::<f32>::from_foreign(owner, vec![8], vec![1]) };
+        let copy = tensor.dup();
+        assert!(!tensor.has_unique_storage());
+        drop(copy);
         assert!(tensor.has_unique_storage());
     }
 
