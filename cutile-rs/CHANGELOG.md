@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Tensor uniqueness tracks user-visible aliases separately from completion
+  leases. Concurrent lease creation or release can no longer permit an aliased
+  mutable partition or spuriously reject unique storage.
 - Host-side `KernelInputStored` and `KernelOutputStored` require `unsafe impl`
   with explicit type, ABI, extent, retention, and access obligations. Safe custom
   bindings can no longer mislabel boolean storage as byte kernel arguments.
