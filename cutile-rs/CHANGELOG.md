@@ -7,14 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Fixed
-
-- Const-generic array bindings retain their function or method signature as
-  their source origin, and generated reduction bodies retain the reduction
-  call's location and inline chain.
-- Failed host launch checks report their original accesses and inline callers,
-  retaining distinct origins when equivalent predicates share one comparison.
-
 ### Changed
 
 - Tile and SIMT share `cuda_async` operations, scheduling, futures and launch
@@ -27,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Tensor uniqueness tracks user-visible aliases separately from completion
+  leases. Concurrent lease creation or release can no longer permit an aliased
+  mutable partition or spuriously reject unique storage.
 - Host-side `KernelInputStored` and `KernelOutputStored` require `unsafe impl`
   with explicit type, ABI, extent, retention, and access obligations. Safe custom
   bindings can no longer mislabel boolean storage as byte kernel arguments.
@@ -44,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   when the tensor is read back, and is now a compile error. Numeric element
   types, including `f16`, `bf16`, and the FP8 and packed FP4 storage types,
   are unaffected (NVIDIA/cuda-rust#1506).
+- Const-generic array bindings retain their function or method signature as
+  their source origin, and generated reduction bodies retain the reduction
+  call's location and inline chain.
+- Failed host launch checks report their original accesses and inline callers,
+  retaining distinct origins when equivalent predicates share one comparison.
 
 ### Changed
 
