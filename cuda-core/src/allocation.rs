@@ -7,10 +7,7 @@
 
 use crate::{Context, DriverError, Stream};
 use cuda_bindings::CUdeviceptr;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 /// A foreign allocation whose owner keeps both its memory and CUDA context alive.
 ///
@@ -92,7 +89,6 @@ struct Allocation {
     context: Arc<Context>,
     owner: Owner,
     accesses: Mutex<Accesses>,
-    leases: AtomicUsize,
 }
 
 impl Drop for Allocation {
@@ -135,6 +131,9 @@ impl Drop for Allocation {
 #[derive(Clone)]
 pub struct RawDeviceBuffer {
     allocation: Arc<Allocation>,
+    // Only user-visible views share this token. Completion leases retain the
+    // allocation directly, so creating/dropping them cannot affect uniqueness.
+    views: Arc<()>,
     offset: usize,
     len: usize,
 }
@@ -162,8 +161,8 @@ impl RawDeviceBuffer {
                 context,
                 owner,
                 accesses: Mutex::default(),
-                leases: AtomicUsize::new(0),
             }),
+            views: Arc::new(()),
             offset: 0,
             len: bytes,
         }
@@ -260,6 +259,7 @@ impl RawDeviceBuffer {
         }
         Ok(Self {
             allocation: self.allocation.clone(),
+            views: self.views.clone(),
             offset: self.offset + offset,
             len: bytes,
         })
@@ -268,12 +268,7 @@ impl RawDeviceBuffer {
     /// Whether only this user-visible view owns the allocation. Completion leases
     /// do not count as user aliases; they still enforce in-flight exclusion.
     pub fn is_unique(&self) -> bool {
-        let _accesses = self
-            .allocation
-            .accesses
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        Arc::strong_count(&self.allocation) == 1 + self.allocation.leases.load(Ordering::Relaxed)
+        Arc::strong_count(&self.views) == 1
     }
 
     /// Acquires an allocation-wide access, rejecting cross-stream conflicts.
@@ -308,7 +303,6 @@ impl RawDeviceBuffer {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let id = accesses.register(stream, write, recording)?;
-        self.allocation.leases.fetch_add(1, Ordering::Relaxed);
         Ok(AllocationLease {
             allocation: self.allocation.clone(),
             id,
@@ -352,7 +346,6 @@ impl Drop for AllocationLease {
         if let Some(pos) = accesses.active.iter().position(|a| a.id == self.id) {
             accesses.active.swap_remove(pos);
         }
-        self.allocation.leases.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
@@ -386,5 +379,58 @@ impl std::fmt::Debug for AllocationLease {
         f.debug_struct("AllocationLease")
             .field("id", &self.id)
             .finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    fn metadata() -> RawDeviceBuffer {
+        // SAFETY: bookkeeping only. These borrowed handles are never passed to
+        // CUDA, dereferenced, or freed by their destructors.
+        unsafe {
+            RawDeviceBuffer::borrowed_from_raw_parts(
+                0x1000,
+                128,
+                Context::borrow_raw(0x2000 as *mut _, 0, 0),
+            )
+        }
+    }
+
+    #[test]
+    fn uniqueness_counts_byte_views_but_not_completion_leases() {
+        let raw = metadata();
+        let view = raw.slice_bytes(16, 32).unwrap();
+        let clone = raw.clone();
+        let lease = raw.acquire_on_stream(1, true, false).unwrap();
+        assert!(!raw.is_unique());
+        drop(view);
+        assert!(!raw.is_unique());
+        drop(clone);
+        assert!(raw.is_unique());
+        assert!(raw.acquire_on_stream(2, false, false).is_err());
+        drop(lease);
+        assert!(raw.acquire_on_stream(2, false, false).is_ok());
+    }
+
+    #[test]
+    fn concurrent_lease_retirement_cannot_change_user_uniqueness() {
+        let raw = metadata();
+        let stop = AtomicBool::new(false);
+        let mut false_negatives = 0;
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                while !stop.load(Ordering::Relaxed) {
+                    drop(raw.acquire_on_stream(1, false, false).unwrap());
+                }
+            });
+            for _ in 0..100_000 {
+                false_negatives += usize::from(!raw.is_unique());
+            }
+            stop.store(true, Ordering::Relaxed);
+        });
+        assert_eq!(false_negatives, 0);
     }
 }
