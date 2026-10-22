@@ -134,11 +134,18 @@ fn device_box_preserves_concurrent_read_permissions() {
     let buffer = cuda_async::device_box::DeviceBox::from_buffer(
         DeviceBuffer::from_host(&stream, &[1u32; 32]).unwrap(),
     );
+    let raw_ptr = unsafe { cuda_core::memory::malloc_async(stream.cu_stream(), 32 * 4).unwrap() };
+    stream.synchronize().unwrap();
+    let raw_box = unsafe {
+        cuda_async::device_box::DeviceBox::<[u32]>::from_raw_parts(raw_ptr, 32, stream.clone())
+    };
+    assert!(!raw_box.shared_access_writes());
     let make_launch = || {
         let mut builder = AsyncKernelLaunchBuilder::new(function.clone());
         cuda_host::push_async_read_only_device_slice(&mut builder, &buffer);
-        // SAFETY: the PTX's pointer/length signature matches this descriptor;
-        // the no-op kernel never dereferences the modeled shared slice.
+        cuda_host::push_async_read_only_device_slice(&mut builder, &raw_box);
+        // SAFETY: the PTX's pointer/length signature matches the first descriptor;
+        // the no-op kernel never dereferences the modeled shared slices.
         unsafe { builder.finalize_unchecked(LaunchConfig::for_num_elems(32)) }
     };
     let (tx, rx) = mpsc::channel();

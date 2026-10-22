@@ -409,7 +409,9 @@ impl<T> DeviceBuffer<T> {
     {
         // SAFETY: DeviceRepr guarantees every initialized T representation
         // is valid as I; relabel preserves ownership and checks the layout.
-        unsafe { self.relabel() }
+        let mut buffer = unsafe { self.relabel() };
+        buffer.shared_access_writes = false;
+        buffer
     }
 
     /// Hand this allocation to a `DeviceBuffer<A>` of the same length.
@@ -522,6 +524,14 @@ impl<T> DeviceBuffer<T> {
 }
 
 impl<T: DeviceCopy> DeviceBuffer<T> {
+    fn empty_copy(len: usize, ctx: Arc<Context>) -> Self {
+        // SAFETY: a null pointer with zero bytes is never dereferenced
+        // and Drop/drop_async ignore it. DeviceCopy excludes interior mutability.
+        let mut buf = unsafe { Self::from_raw_parts(0, len, ctx) };
+        buf.shared_access_writes = false;
+        buf
+    }
+
     /// Constructs a plain-value typed view of shared byte storage.
     ///
     /// # Safety
@@ -562,9 +572,7 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
         // cuMemAlloc rejects zero-byte requests with CUDA_ERROR_INVALID_VALUE,
         // so represent an empty buffer as a null pointer (Drop skips it).
         if num_bytes == 0 {
-            // SAFETY: a null pointer with zero bytes is never dereferenced
-            // and Drop ignores it.
-            return Ok(unsafe { Self::from_raw_parts(0, len, ctx) });
+            return Ok(Self::empty_copy(len, ctx));
         }
 
         ctx.bind_to_thread()?;
@@ -604,9 +612,7 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
         // cuMemAlloc rejects zero-byte requests with CUDA_ERROR_INVALID_VALUE,
         // so represent an empty buffer as a null pointer (Drop skips it).
         if num_bytes == 0 {
-            // SAFETY: a null pointer with zero bytes is never dereferenced
-            // and Drop ignores it.
-            return Ok(unsafe { Self::from_raw_parts(0, len, ctx) });
+            return Ok(Self::empty_copy(len, ctx));
         }
 
         ctx.bind_to_thread()?;
@@ -688,9 +694,7 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
         // cuMemAlloc rejects zero-byte requests with CUDA_ERROR_INVALID_VALUE,
         // so represent an empty buffer as a null pointer (Drop skips it).
         if num_bytes == 0 {
-            // SAFETY: a null pointer with zero bytes is never dereferenced
-            // and Drop ignores it.
-            return Ok(unsafe { Self::from_raw_parts(0, len, ctx) });
+            return Ok(Self::empty_copy(len, ctx));
         }
 
         ctx.bind_to_thread()?;
@@ -912,9 +916,7 @@ impl<T: DeviceCopy> DeviceBuffer<T> {
         let ctx = stream.context().clone();
         let num_bytes = allocation_size::<T>(len)?;
         if num_bytes == 0 {
-            // SAFETY: a null pointer with zero bytes is never dereferenced
-            // and Drop/drop_async ignore it.
-            return Ok(unsafe { Self::from_raw_parts(0, len, ctx) });
+            return Ok(Self::empty_copy(len, ctx));
         }
 
         ctx.bind_to_thread()?;

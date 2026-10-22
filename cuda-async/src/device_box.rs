@@ -60,7 +60,10 @@ impl<DType: Send + Sized> DeviceBox<[DType]> {
         dptr: CUdeviceptr,
         len: usize,
         stream: Arc<cuda_core::Stream>,
-    ) -> Self {
+    ) -> Self
+    where
+        DType: Copy,
+    {
         let bytes = len
             .checked_mul(std::mem::size_of::<DType>())
             .expect("device allocation size overflow");
@@ -69,7 +72,7 @@ impl<DType: Send + Sized> DeviceBox<[DType]> {
             unsafe { cuda_core::RawDeviceBuffer::from_raw_parts_async(dptr, bytes, stream) };
         Self {
             storage,
-            shared_access_writes: true,
+            shared_access_writes: false,
             _marker: PhantomData,
             cudptr: dptr,
             len,

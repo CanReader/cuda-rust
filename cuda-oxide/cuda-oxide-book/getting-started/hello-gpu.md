@@ -261,9 +261,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 memcpy_htod_async(b, b_host.as_ptr(), num_bytes, stream.cu_stream()).unwrap();
                 stream.synchronize().unwrap();
                 (
-                    DeviceBox::<[f32]>::from_raw_parts(a, N, 0),
-                    DeviceBox::<[f32]>::from_raw_parts(b, N, 0),
-                    DeviceBox::<[f32]>::from_raw_parts(c, N, 0),
+                    DeviceBox::<[f32]>::from_raw_parts(a, N, stream.clone()),
+                    DeviceBox::<[f32]>::from_raw_parts(b, N, stream.clone()),
+                    DeviceBox::<[f32]>::from_raw_parts(c, N, stream.clone()),
                 )
             }
         })?;

@@ -309,7 +309,7 @@ fn h2d(host_data: Vec<f32>) -> impl DeviceOperation<Output = DeviceBox<[f32]>> {
             let dptr = malloc_async(stream.cu_stream(), num_bytes).unwrap();
             memcpy_htod_async(dptr, host_data.as_ptr(), num_bytes, stream.cu_stream())
                 .unwrap();
-            value(DeviceBox::from_raw_parts(dptr, n, ctx.get_device_id()))
+            value(DeviceBox::from_raw_parts(dptr, n, stream.clone()))
         }
     })
 }
