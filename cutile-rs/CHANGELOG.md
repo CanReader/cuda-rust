@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   when the tensor is read back, and is now a compile error. Numeric element
   types, including `f16`, `bf16`, and the FP8 and packed FP4 storage types,
   are unaffected (NVIDIA/cuda-rust#1506).
+- Const-generic array bindings retain their function or method signature as
+  their source origin, and generated reduction bodies retain the reduction
+  call's location and inline chain.
+- Failed host launch checks report their original accesses and inline callers,
+  retaining distinct origins when equivalent predicates share one comparison.
 
 ### Changed
 
