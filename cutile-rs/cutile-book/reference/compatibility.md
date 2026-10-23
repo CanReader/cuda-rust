@@ -6,7 +6,7 @@ bytecode writer, launch guard, and example/test prerequisites.
 
 GPUs below `sm_80` (such as `sm_70` and `sm_75`) are unsupported, and support
 for them is currently not planned.
-Since the Tile compiler is new, our focus is to maintain peak performance on
+Since the Tile compiler is new, our current focus is to maintain peak performance on
 current and future architectures.
 
 The version is the **emitted Tile IR version**, not the version reported by

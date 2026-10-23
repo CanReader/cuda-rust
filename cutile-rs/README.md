@@ -99,7 +99,7 @@ CUDA **13.3 is recommended**. FP4 packing and block-scaled MMA require 13.3.
 
 GPUs below `sm_80` (such as `sm_70` and `sm_75`) are unsupported, and support
 for them is currently not planned.
-Since the Tile compiler is new, our focus is to maintain peak performance on
+Since the Tile compiler is new, our current focus is to maintain peak performance on
 current and future architectures.
 
 ### Feature requirements
