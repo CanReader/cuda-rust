@@ -96,7 +96,13 @@ For DGX Spark / GB10 (`sm_121`), see the
 [DGX Spark tutorial](https://nvidia.github.io/cuda-rust/cutile/latest/tutorials/12-dgx-spark-inference.html).
 
 CUDA **13.3 is recommended**. FP4 packing and block-scaled MMA require 13.3.
-GPUs below `sm_80` (such as `sm_70` and `sm_75`) are unsupported.
+
+GPUs below `sm_80` (such as `sm_70` and `sm_75`) are unsupported, and support
+for them is currently not planned. We can't say "not ever," but it is
+currently not a priority. The limitation comes from what the underlying
+[CUDA Tile compiler supports](https://docs.nvidia.com/cuda/tile-ir/13.4/sections/stability.html#supported-architectures).
+It's a new compiler and there's a lot of work that needs to be done, so we're
+focusing on supporting peak performance on `sm_80+`.
 
 ### Feature requirements
 
