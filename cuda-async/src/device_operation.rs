@@ -154,6 +154,8 @@ impl ExecutionContext {
     /// operation's output. A forgotten future deliberately leaks these owners.
     ///
     /// Clones share the submission; a completed context cannot be reused.
+    /// [`DeviceOp::async_on`] releases these owners on return instead: its
+    /// unsafe caller independently guarantees resource lifetimes and ordering.
     pub fn retain(&self, owner: impl Send + 'static) -> Result<(), DeviceError> {
         self.submission.retain(owner)
     }
@@ -215,7 +217,8 @@ impl ExecutionContext {
         self.submission.take_recorded()
     }
 
-    /// The caller has proved completion of all submitted work.
+    /// The caller has proved completion, or independently guarantees resource
+    /// lifetimes and ordering (the unsafe `async_on` escape hatch).
     pub(crate) unsafe fn complete(&self) {
         self.submission.complete();
     }
@@ -353,7 +356,9 @@ pub trait DeviceOp:
     ///
     /// # Safety
     /// The caller must establish completion before host access to the output,
-    /// and must retain the context until completion or deliberately leak it.
+    /// and retain the context until completion, deliberately leak it, or
+    /// independently uphold the resource lifetime and ordering requirements
+    /// documented on [`async_on`](Self::async_on).
     unsafe fn execute(
         self,
         context: &ExecutionContext,
@@ -552,20 +557,25 @@ pub trait DeviceOp:
     ///
     /// # Safety
     ///
-    /// The caller must ensure the stream is synchronized before accessing
-    /// GPU data from the output, and must keep every submitted resource alive
-    /// and prevent conflicting accesses until completion, including resources
-    /// discarded by combinators. Registered owners are retained independently
-    /// until completion, but raw, unregistered resources remain the caller's
-    /// responsibility.
+    /// The caller must establish GPU completion before host access to the
+    /// output, keep every submitted resource alive, and prevent conflicting
+    /// accesses until completion. This includes allocations, kernel modules,
+    /// graph executables, DMA buffers, and resources discarded by combinators.
+    /// These obligations also apply to work submitted before an error.
+    ///
+    /// Unlike safe future execution, this method releases registered owners
+    /// and access leases on return, even on error. It does not synchronize or
+    /// arrange background retention of those resources.
     unsafe fn async_on(
         self,
         stream: &Arc<Stream>,
     ) -> Result<<Self as DeviceOp>::Output, DeviceError> {
         let ctx = ExecutionContext::new(stream.clone());
         let result = unsafe { self.execute(&ctx) };
-        // Dropping the context retires independently registered owners without
-        // waiting. The caller remains responsible for host access to outputs.
+        // SAFETY: the unsafe caller independently retains all resources and
+        // orders their accesses, including work submitted before an error.
+        // Release tracking now so context drop needs no completion probe/event.
+        unsafe { ctx.complete() };
         result
     }
     /// Execute on an **explicit stream** and block until the GPU finishes.

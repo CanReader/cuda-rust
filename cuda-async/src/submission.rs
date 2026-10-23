@@ -129,7 +129,11 @@ impl Submission {
         std::mem::take(&mut *self.recorded.lock().unwrap_or_else(|e| e.into_inner()))
     }
 
-    /// No further work may be submitted using this submission.
+    /// Releases tracking; no further work may use this submission.
+    ///
+    /// # Safety
+    /// GPU work must be complete, or the caller must independently keep all
+    /// resources alive and prevent conflicting accesses until completion.
     pub(crate) unsafe fn complete(&self) {
         self.owners
             .lock()
