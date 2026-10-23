@@ -5,8 +5,7 @@ The tables below come from the same requirements registry used by the compiler,
 bytecode writer, launch guard, and example/test prerequisites.
 
 GPUs below `sm_80` (such as `sm_70` and `sm_75`) are unsupported, and support
-for them is currently not planned. The limitation comes from what the underlying
-[CUDA Tile compiler supports](https://docs.nvidia.com/cuda/tile-ir/13.4/sections/stability.html#supported-architectures).
+for them is currently not planned.
 Since the Tile compiler is new, our focus is to maintain peak performance on
 current and future architectures.
 
