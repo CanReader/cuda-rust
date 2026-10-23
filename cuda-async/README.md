@@ -165,8 +165,12 @@ unique user-visible storage; internal submission owners do not count as aliases.
 Custom `KernelInputStored` and `KernelOutputStored` implementations
 must implement `retain`. Custom `DeviceOp`s must register owned resources with
 `ExecutionContext::retain` before enqueueing work. The unsafe `async_on` escape
-hatch retains registered owners but leaves raw accesses and host reads to its caller. Device-to-host
-`Vec` copies synchronize before exposing initialized elements to host combinators.
+hatch leaves resource lifetime and access ordering to its caller. On return,
+including an error, it releases registered owners and access leases without
+synchronizing or arranging background retention. The caller must keep every
+submitted allocation, module, graph and DMA buffer alive until completion,
+including resources discarded by combinators. Device-to-host `Vec` copies
+synchronize before exposing initialized elements to host combinators.
 
 ## CUDA Graphs
 
