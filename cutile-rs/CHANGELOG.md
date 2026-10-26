@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   function definition, retaining exact user-expression locations and nested
   cross-file inline caller chains.
 
+- Generated kernel entry setup and assumptions now use the user function's
+  signature as their source location, preserving the inlined body's own
+  statement locations and helper scopes.
 - Const-generic array bindings retain their function or method signature as
   their source origin, and generated reduction bodies retain the reduction
   call's location and inline chain.

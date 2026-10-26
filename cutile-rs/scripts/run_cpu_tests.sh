@@ -88,7 +88,12 @@ done
 
 run_step \
     "cutile debug provenance through the assembler" \
+    "cutile debug provenance through the assembler" \
     cargo test -p cutile --test debug_info nested_helper_cubin_lines_stay_inside_their_functions -- --ignored
+
+run_step \
+    "cutile entry setup locations through the assembler" \
+    cargo test -p cutile --test debug_info entry_setup_cubin_uses_signature_in_line_and_full_modes -- --ignored
 
 run_step \
     "cutile generated source locations through the assembler" \
