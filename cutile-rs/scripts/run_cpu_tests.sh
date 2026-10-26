@@ -90,7 +90,6 @@ done
 
 run_step \
     "cutile debug provenance through the assembler" \
-    "cutile debug provenance through the assembler" \
     cargo test -p cutile --test debug_info nested_helper_cubin_lines_stay_inside_their_functions -- --ignored
 
 run_step \
