@@ -19,6 +19,7 @@ If you are unsure whether something is worth a full issue or PR, the Discord
 - [Signing Your Commits](#signing-your-commits)
 - [Contribution Process](#contribution-process)
 - [Code Requirements](#code-requirements)
+- [AI-Assisted Contributions](#ai-assisted-contributions)
 - [IP Review Process](#ip-review-process)
 
 ## Developer Certificate of Origin
@@ -141,13 +142,16 @@ Each product has its own workspace and toolchain under `cuda-oxide/` or
 `cutile-rs/`. The setup commands below cover cuda-oxide; the Tile checks have
 their own section further down.
 
-cuda-oxide requires the Rust nightly toolchain with `rustc_private` support.
-See the [cuda-oxide README](cuda-oxide/README.md) for setup instructions.
+cuda-oxide pins its stable Rust toolchain (`1.99.1`) and required `rustc-dev`
+and `llvm-tools` components in `cuda-oxide/rust-toolchain.toml` (with
+`RUSTC_BOOTSTRAP=1` configured via `cuda-oxide/.cargo/config.toml` and
+`cargo-oxide`). See the [cuda-oxide README](cuda-oxide/README.md) for setup
+instructions.
 
-`cuda-oxide/flake.nix` provides the CUDA 13, LLVM 22, Clang, and pinned nightly
-development environment. From the repository root, run `cd cuda-oxide` and
-then `nix develop` with flakes enabled. Container setup is documented in
-[cuda-oxide/.devcontainer/README.md](cuda-oxide/.devcontainer/README.md).
+`cuda-oxide/flake.nix` provides the CUDA 13, Clang/libclang, and pinned Rust
+(with LLVM 23 `llvm-tools`) development environment. From the repository root,
+run `cd cuda-oxide` and then `nix develop` with flakes enabled. Container setup
+is documented in [cuda-oxide/.devcontainer/README.md](cuda-oxide/.devcontainer/README.md).
 
 ### Running the cuda-oxide checks
 
@@ -289,6 +293,14 @@ error's `Display` names the library candidates the loader tried.
   `cargo deny check` does not resolve it; the script reads the example lock
   files directly and asks for a row per third-party crate. Examples that
   depend only on first-party crates by path need nothing.
+
+## AI-Assisted Contributions
+
+- **You are responsible:** Review and understand all AI-generated code before submitting it.
+- **Verify correctness:** AI-generated code may contain bugs or security issues. Run the applicable tests and review the diff carefully.
+- **No AI-generated sensitive content:** Do not use AI to generate security policies, legal, or license text.
+
+See [AGENTS.md](AGENTS.md) for instructions for coding agents working in this repository.
 
 ## IP Review Process
 
