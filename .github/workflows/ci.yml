@@ -62,6 +62,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.github/workflows/**'
+              - '.github/actions/setup-cuda-container/**'
             # `*` covers a root file, `**` every nested path. Both false means
             # no file diff was detected.
             any_changed:
